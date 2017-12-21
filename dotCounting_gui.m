@@ -22,7 +22,7 @@ function varargout = dotCounting_gui(varargin)
 
 % Edit the above text to modify the response to help dotCounting_gui
 
-% Last Modified by GUIDE v2.5 29-Nov-2017 16:11:38
+% Last Modified by GUIDE v2.5 12-Dec-2017 18:26:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -174,7 +174,7 @@ if handles.image_displayed
      if isempty(handles.current_image_stack)
         % Load the file stack 
         
-        [handles.current_image_stack, handles.num_channel] = czi_open(handles.stack.image_path_cell{handles.image_displayed});
+        [handles.current_image_stack, handles.num_channel] = load_position(handles, handles.image_displayed);
         
     end
     
@@ -183,24 +183,35 @@ if handles.image_displayed
     %     set(handles.slider_select_image, 'Value', handles.image_displayed);
     set(handles.stackViewer.c_slider, 'Min', 1);
     set(handles.stackViewer.c_slider, 'Max', handles.num_channel);
-    set(handles.stackViewer.c_slider, 'SliderStep', [1/(handles.num_channel-1) , 1/(handles.num_channel-1) ]);
-    
-    
-    
-   
-    handles.num_z_slices = size(handles.current_image_stack{1},3);
-    
-    set(handles.stackViewer.z_slider, 'Min', 1);
-    set(handles.stackViewer.z_slider, 'Max',  handles.num_z_slices );
-    set(handles.stackViewer.z_slider, 'SliderStep', [1/( handles.num_z_slices -1) , 1/( handles.num_z_slices -1) ]);
-    
+    if handles.num_channel >1
+        set(handles.stackViewer.c_slider, 'SliderStep', [1/(handles.num_channel-1) , 1/(handles.num_channel-1) ]);
+    else
+        set(handles.stackViewer.c_slider, 'SliderStep', [1 , 1]);   
+    end
     
     current_channel = handles.stackViewer.c_value;
+   
+    handles.num_z_slices = size(handles.current_image_stack{current_channel},3);
     current_z_slice = handles.stackViewer.z_value;
     
     if current_z_slice > handles.num_z_slices
-        current_z_slice = handles.num_z_slice;
+        current_z_slice = handles.num_z_slices;
+        handles.stackViewer.z_value = current_z_slice;
+        set(handles.stackViewer.z_slider, 'Value', current_z_slice);
     end
+    
+    set(handles.stackViewer.z_slider, 'Min', 1);
+    set(handles.stackViewer.z_slider, 'Max',  handles.num_z_slices );
+    if handles.num_z_slices >1
+        set(handles.stackViewer.z_slider, 'SliderStep', [1/( handles.num_z_slices -1) , 1/( handles.num_z_slices -1) ]);
+        set(handles.stackViewer.z_slider, 'Enable', 'on');
+    else
+        set(handles.stackViewer.z_slider, 'SliderStep', [1 , 1]);
+        set(handles.stackViewer.z_slider, 'Enable', 'off');
+        
+    end
+    
+
     
     imdata = handles.current_image_stack;
 
@@ -211,8 +222,8 @@ if handles.image_displayed
     bincounts = histc(current_image(:), [0.5:1:65535.5]);
     cdf=cumsum(bincounts)/size(current_image,1)/size(current_image,2);
     
-    lower_bound = find(cdf> 0.02,1, 'first');
-    higher_bound = find(cdf> 0.98,1, 'first');
+    lower_bound = find(cdf> 0.01,1, 'first');
+    higher_bound = find(cdf> 0.99,1, 'first');
     figure(handles.stackViewer.window);
 %     ax = axes('Parent',fig);
     xlim = get(gca, 'XLim');
@@ -223,15 +234,19 @@ if handles.image_displayed
         set(gca,'xlim',xlim);
         set(gca,'ylim',ylim);
     end
-    if ~isempty(handles.stack.frame(handles.image_displayed).cell) 
+    if isfield(handles.stack.frame(handles.image_displayed).cell,'dots') 
         for cellNo=1:length(handles.stack.frame(handles.image_displayed).cell)
                 good_dots_stats = handles.stack.frame(handles.image_displayed).cell(cellNo).dots(current_channel).properties;
                 centroid_to_plot = zeros(length(good_dots_stats),3);
-                
-                for p = 1:length(good_dots_stats)
-                    centroid_to_plot(p,:) = good_dots_stats(p).Centroid;
+                if handles.num_z_slices ==1
+                    for p = 1:length(good_dots_stats)
+                        centroid_to_plot(p,:) = [good_dots_stats(p).Centroid 1];
+                    end
+                else
+                    for p = 1:length(good_dots_stats)
+                        centroid_to_plot(p,:) = good_dots_stats(p).Centroid;
+                    end
                 end
-                            
                        
                    dots_in_plane = round(centroid_to_plot(:,3)) == current_z_slice;
                    centroids_in_plane = centroid_to_plot(dots_in_plane,1:2);
@@ -265,8 +280,8 @@ if handles.image_displayed
         bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
-        lower_bound(i) = find(cdf> 0.05,1, 'first');
-        higher_bound(i) = find(cdf> 0.95,1, 'first');
+        lower_bound(i) = find(cdf> 0.01,1, 'first');
+        higher_bound(i) = find(cdf> 0.99,1, 'first');
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -275,13 +290,15 @@ if handles.image_displayed
     
     BW_mask = roipoly;
     
-    [handles, dots] = dotCounting( handles, imdata, BW_mask);
-    close(h);
     handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells + 1;
     handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).mask  = BW_mask;
-    handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).dots = dots;
     
-    
+    if handles.stack.live_dot_finding
+        [handles, dots] = dotCounting( handles, imdata, BW_mask);
+        handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).dots = dots;
+    end
+    close(h);
+
     guidata(hObject, handles)
     
     
@@ -308,8 +325,8 @@ if ~isempty(handles.stack.frame(handles.image_displayed).cell)
         bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
-        lower_bound(i) = find(cdf> 0.05,1, 'first');
-        higher_bound(i) = find(cdf> 0.95,1, 'first');
+        lower_bound(i) = find(cdf> 0.01,1, 'first');
+        higher_bound(i) = find(cdf> 0.99,1, 'first');
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -351,8 +368,10 @@ if handles.open_stack == 0
         set(handles.txt_stack,'String', FileName)
         handles.stack.number_images = 0;
         handles.stack.image_path_cell = {};
-        handles.stack.frame.cells = struct;
+        handles.stack.image_path_number = [];
+        handles.stack.frame.cell = struct;
         handles.stack.frame.number_cells = 0;
+        handles.stack.live_dot_finding = 1;
         handles.image_displayed = 0;
         handles.current_image_stack = [];
         
@@ -399,8 +418,8 @@ function menu_saveStack_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 stack = handles.stack;
 save(handles.stack.name, 'stack')
-% --------------------------------------------------------------------
-function menu_addImages_Callback(hObject, eventdata, handles)
+% ---------------------CZI images-----------------------------------------------
+function menu_addImages_Callback(hObject, eventdata, handles) %
 % hObject    handle to menu_addImages (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -424,12 +443,84 @@ if ~isa(FileName, 'double') %Dialog not closed
         handles.stack.frame(handles.stack.number_images).number_cells = 0;
         handles.stack.image_path_cell{length( handles.stack.image_path_cell) + 1} = [PathName FileName];
     end
-    
+    handles.stack.filetype = 'czi';
     handles = update_display(hObject,handles);
     guidata(hObject, handles)
     
     
 end
+
+% --------------------------------------------------------------------
+function menu_addImagesND_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_addImagesND (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+[FileName,PathName] = uigetfile('*.tif','Pick one file with basename');
+[startIndex,endIndex] = regexp(FileName,'_w.*_s');
+basename =FileName(1:(startIndex-1));
+if ~isa(FileName, 'double') %Dialog not closed
+    
+    files = dir([PathName filesep basename '*.tif']);
+    number_position = 1;
+    number_channel = 1;
+    for i=1:length(files)
+        FileName=files(i).name;
+        [startIndex,endIndex] = regexp(FileName,'_w.*_s');
+        channel_num = str2num(FileName(startIndex+2));
+        [startIndex,endIndex] = regexp(FileName,'_s.*(?i:tif)');
+        pos_num = str2num(FileName(startIndex+2:endIndex-4));
+        if pos_num > number_position
+            number_position = pos_num;
+        end
+        if channel_num > number_channel
+            number_channel = channel_num;
+        end
+    end
+    prompt = ['Detected ' num2str(number_position) ' positions with ' num2str(number_channel) ' channels' newline 'Add positions (e.g. 1-5):'];
+    dlg_title = 'Select positions';
+    answer = inputdlg(prompt,dlg_title);
+    if ~isempty(answer)
+        str_cell = split(answer,'-');
+        pos_start = str2num(str_cell{1});
+        pos_end = str2num(str_cell{2});
+        if logical(pos_start) && logical(pos_end)
+            pos_vector = pos_start:pos_end;
+            for i=1:length(pos_vector)
+                handles.stack.image_path_cell{length( handles.stack.image_path_cell) + 1} = [PathName basename];
+                handles.stack.image_path_number(length( handles.stack.image_path_number) + 1) = pos_vector(i);
+                handles.stack.frame(handles.stack.number_images + i).number_cells = 0;
+            end
+            
+            handles.stack.number_images = handles.stack.number_images + pos_end-pos_start + 1;
+            handles.stack.filetype = 'tif';
+            handles = update_display(hObject,handles);
+            guidata(hObject, handles)
+            
+        end
+    end
+  
+end
+
+
+
+% --------------------------------------------------------------------
+function [imdata, num_channels] = load_position(handles, position)
+
+switch handles.stack.filetype
+    case 'czi'
+        [imdata, num_channels] = czi_open(handles.stack.image_path_cell{position});
+    case 'tif'        
+        [imdata, num_channels] = tif_open(handles.stack.image_path_cell{position},handles.stack.image_path_number(position));       
+end
+
+function [imdata, num_channels] = tif_open(basename_path,actual_position)
+files = dir([basename_path '*s' num2str(actual_position) '.tif']);
+num_channels=length(files);
+imdata={};
+for i=1:num_channels
+    imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+end
+
 
 % --------------------------------------------------------------------
 function handles = update_display(hObject,handles)
@@ -444,11 +535,15 @@ if handles.image_displayed
     set(handles.slider_select_image, 'Value', handles.image_displayed);
     set(handles.slider_select_image, 'Min', 1);
     set(handles.slider_select_image, 'Max', handles.stack.number_images);
-    set(handles.slider_select_image, 'SliderStep', [1/(handles.stack.number_images-1) , 1/(handles.stack.number_images-1) ]);
+    if handles.stack.number_images >1
+        set(handles.slider_select_image, 'SliderStep', [1/(handles.stack.number_images-1) , 1/(handles.stack.number_images-1) ]);
+    else
+        set(handles.slider_select_image, 'SliderStep', [0 , 0 ]);
+    end
     if isempty(handles.current_image_stack)
-        % Load the file stack %ADD NUMBER CHANNEL DETECTION
+        % Load the file stack 
         
-        [handles.current_image_stack, handles.num_channel] = czi_open(handles.stack.image_path_cell{handles.image_displayed});
+        [handles.current_image_stack, handles.num_channel] = load_position(handles, handles.image_displayed);
             
 
     end
@@ -463,8 +558,8 @@ if handles.image_displayed
         bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
-        lower_bound(i) = find(cdf> 0.05,1, 'first');
-        higher_bound(i) = find(cdf> 0.95,1, 'first');
+        lower_bound(i) = find(cdf> 0.01,1, 'first');
+        higher_bound(i) = find(cdf> 0.99,1, 'first');
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -534,10 +629,10 @@ for k = 1:handles.num_channel
     idx_to_keep = [stats.Area] >= 1 ;
     good_dots_stats = stats(idx_to_keep);
     centroid_to_plot = zeros(length(good_dots_stats),3);
-    
-    for p = 1:length(good_dots_stats)
-        centroid_to_plot(p,:) = good_dots_stats(p).Centroid;
-    end
+%     
+%     for p = 1:length(good_dots_stats)
+%         centroid_to_plot(p,:) = good_dots_stats(p).Centroid;
+%     end
     
     dots(k).properties = good_dots_stats;
     dots(k).counts = length(good_dots_stats);
@@ -616,6 +711,9 @@ else
     handles.threshold.chk_auto_threshold = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 218, 95, 19], 'Value', 1, 'String', 'Auto Threshold', 'Callback', {@chk_auto_threshold_Callback, hObject});
     handles.stack.autothreshold = 1;
 
+    handles.threshold.chk_live_dot_finding = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 250, 95, 19], 'Value', 1, 'String', 'Live dot finding', 'Callback', {@chk_live_dot_finding_Callback, hObject});
+    handles.stack.live_dot_finding = 1;
+    
     handles.threshold.button_rethreshold = uicontrol(gcf, 'Style', 'pushbutton', 'Position', [141, 210, 84, 35], 'String', 'Rethreshold all', 'Callback', {@button_rethreshold_Callback, hObject});
     
     for i=1:handles.num_channel
@@ -638,10 +736,22 @@ end
 
 guidata(hObject, handles)
 
+function chk_live_dot_finding_Callback(parent,~ ,hObject)
+
+handles = guidata(hObject);
+
+if get(parent,'value')
+    handles.stack.live_dot_finding = 1;
+else
+    handles.stack.live_dot_finding = 0;
+end
+
+guidata(hObject, handles)
 
 function button_rethreshold_Callback(parent,~ ,hObject)
 
 handles = guidata(hObject);
+h = waitbar(0);
 for fov=1:handles.stack.number_images
    if  ~isempty(handles.stack.frame(fov).cell)
        for cellNo=1:handles.stack.frame(fov).number_cells
@@ -649,7 +759,9 @@ for fov=1:handles.stack.number_images
            % TO DO: threshold all cells in fov at same time
        end
    end
+   waitbar(fov/handles.stack.number_images,h);
 end
+close(h);
 guidata(hObject, handles)
 
 function change_threshold_Callback(parent,~ ,hObject)
@@ -665,7 +777,7 @@ else %put it back the way it was
    set(parent,'String',num2str(handles.threshold.(['channel' channel_to_change]))); 
 end
 % Rethreshold last cell
-if handles.stack.frame(handles.image_displayed).number_cells
+if handles.stack.frame(handles.image_displayed).number_cells && handles.stack.live_dot_finding
     handles = rethreshold_cell(handles, handles.image_displayed, length(handles.stack.frame(handles.image_displayed).cell));
     if strcmp(get(handles.menu_stackViewer,'checked'),'on') %also update display
         handles = update_stackViewer_display(hObject,handles);
@@ -685,7 +797,7 @@ function handles = rethreshold_cell(handles, frameNo, cellNo)
 
  BW_mask = handles.stack.frame(frameNo).cell(cellNo).mask ; 
  if frameNo ~= handles.image_displayed %need to load the file
-     imdata = czi_open(handles.stack.image_path_cell{frameNo});
+     imdata = load_position(handles,frameNo);
  else
      imdata = handles.current_image_stack;
  end
@@ -719,3 +831,10 @@ function figure1_CloseRequestFcn(hObject, eventdata, handles)
    case 'No'
      return
  end
+
+
+
+
+
+
+
