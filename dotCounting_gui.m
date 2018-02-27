@@ -22,7 +22,7 @@ function varargout = dotCounting_gui(varargin)
 
 % Edit the above text to modify the response to help dotCounting_gui
 
-% Last Modified by GUIDE v2.5 20-Dec-2017 18:31:46
+% Last Modified by GUIDE v2.5 24-Dec-2017 11:59:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -242,8 +242,8 @@ if handles.image_displayed
         bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
-        lower_bound(i) = find(cdf> 0.01,1, 'first');
-        higher_bound(i) = find(cdf> 0.99,1, 'first');
+        lower_bound(i) = find(cdf> 0.3,1, 'first');
+        higher_bound(i) = find(cdf> 0.999,1, 'first');
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -376,7 +376,7 @@ if handles.image_displayed
                     dots_in_plane = round(centroid_to_plot(:,3)) == current_z_slice;
                     centroids_in_plane = centroid_to_plot(dots_in_plane,1:2);
                     hold on;
-                    viscircles(centroid_to_plot(:,1:2),repmat(2,size(centroid_to_plot(:,1:2),1),1),'color','g');
+                    viscircles(centroid_to_plot(:,1:2),repmat(2,size(centroid_to_plot(:,1:2),1),1),'Edgecolor','g');
                     viscircles(centroids_in_plane,repmat(2,size(centroids_in_plane,1),1));
                     hold off;
                 end
@@ -405,8 +405,8 @@ if handles.image_displayed
         bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
-        lower_bound(i) = find(cdf> 0.01,1, 'first');
-        higher_bound(i) = find(cdf> 0.99,1, 'first');
+        lower_bound(i) = find(cdf> 0.3,1, 'first');
+        higher_bound(i) = find(cdf> 0.999,1, 'first');
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -423,9 +423,7 @@ if handles.image_displayed
     end
     
     close(h);
-    if ~isfield(handles.stack.frame(handles.image_displayed), 'number_cells') || handles.stack.frame(handles.image_displayed).number_cells == 0
-        set(handles.menu_removeCell, 'Enable', 'On')
-    end
+    set(handles.menu_removeCell, 'Enable', 'On')
     
     handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).mask  = BW_mask;
     
@@ -455,8 +453,8 @@ function menu_segmentCells_Callback(hObject, eventdata, handles)
     uicontrol('Style', 'text', 'String', 'Nucleus', 'Position', [135 80 50 10]);
     
     if ~isfield(handles.seg_parameters, 'seg_channel')
-        handles.seg_parameters.seg_channel = 1; handles.seg_parameters.seg_threshold = 1500; 
-        handles.seg_parameters.nuc_channel = 1; handles.seg_parameters.nuc_threshold = 1500;
+        handles.seg_parameters.seg_channel = 1; handles.seg_parameters.seg_threshold = 100; 
+        handles.seg_parameters.nuc_channel = 1; handles.seg_parameters.nuc_threshold = 1000;
     end
     
     handles.seg_parameters.seg_channel_editbox = uicontrol('Style', 'edit', 'String', num2str(handles.seg_parameters.seg_channel), 'Position', [55 55 30 20], 'Callback', {@seg_channel_Callback, hObject});
@@ -487,6 +485,18 @@ function seg_threshold_Callback(~, ~, hObject)
 
     handles = guidata(hObject);
     handles.seg_parameters.seg_threshold = str2double(get(handles.seg_parameters.seg_threshold_editbox, 'String'));
+    
+    imdata =  handles.current_image_stack;
+    seg_channel_data = imdata{handles.seg_parameters.seg_channel};
+    nuc_channel_data = imdata{handles.seg_parameters.nuc_channel};
+    [seg_im, ~] = segment_on_bg(seg_channel_data, handles.seg_parameters.seg_threshold, nuc_channel_data, handles.seg_parameters.nuc_threshold);
+    
+    for p = 1:max(max(seg_im))
+        BW_mask = 0*seg_im; BW_mask(seg_im == p) = 1;
+        handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells + 1;
+        handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).mask = BW_mask;
+    end
+    handles = update_display(hObject,handles);
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
@@ -501,6 +511,17 @@ function nuc_threshold_Callback(~, ~, hObject)
 
     handles = guidata(hObject);
     handles.seg_parameters.nuc_threshold = str2double(get(handles.seg_parameters.nuc_threshold_editbox, 'String'));
+    imdata =  handles.current_image_stack;
+    seg_channel_data = imdata{handles.seg_parameters.seg_channel};
+    nuc_channel_data = imdata{handles.seg_parameters.nuc_channel};
+    [seg_im, ~] = segment_on_bg(seg_channel_data, handles.seg_parameters.seg_threshold, nuc_channel_data, handles.seg_parameters.nuc_threshold);
+    
+    for p = 1:max(max(seg_im))
+        BW_mask = 0*seg_im; BW_mask(seg_im == p) = 1;
+        handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells + 1;
+        handles.stack.frame(handles.image_displayed).cell(handles.stack.frame(handles.image_displayed).number_cells).mask = BW_mask;
+    end
+    handles = update_display(hObject,handles);
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
@@ -635,8 +656,8 @@ function menu_removeCell_Callback(hObject, eventdata, handles)
             bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
             cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
 
-            lower_bound(i) = find(cdf> 0.01,1, 'first');
-            higher_bound(i) = find(cdf> 0.99,1, 'first');
+            lower_bound(i) = find(cdf> 0.3,1, 'first');
+            higher_bound(i) = find(cdf> 0.999,1, 'first');
             max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
 
         end
@@ -669,7 +690,7 @@ function menu_removeCell_Callback(hObject, eventdata, handles)
             indexToKeep = setxor(1:handles.stack.frame(handles.image_displayed).number_cells,cellToRemove);
             handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells -1;
             if handles.stack.frame(handles.image_displayed).number_cells == 0
-                set(handles.menu_removeCell, 'Enable', 'Off');
+                set(handles.menu_removeCell, 'Enable', 'On');
             end
 
             handles.stack.frame(handles.image_displayed).cell = handles.stack.frame(handles.image_displayed).cell(indexToKeep);
@@ -745,6 +766,23 @@ function menu_saveStack_Callback(hObject, eventdata, handles)
     stack = handles.stack;
     save(handles.stack.name, 'stack')
 
+
+% --------------------------------------------------------------------
+function menu_saveStackAs_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_saveStackAs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+    
+    stack = handles.stack;
+    [FileName,PathName] = uiputfile('*.mat');
+    if FileName
+        set(handles.txt_stack,'String', FileName)
+        handles.stack.name = [PathName FileName];
+        save(handles.stack.name, 'stack');
+    end
+    guidata(hObject, handles);
+    
+    
 % -------------------CZI images----------------------------------------
 function menu_addImages_Callback(hObject, eventdata, handles)
 % hObject    handle to menu_addImages (see GCBO)
@@ -824,13 +862,14 @@ if ~isa(FileName, 'double') %Dialog not closed
             number_channel = channel_num;
         end
     end
-    prompt = ['Detected ' num2str(number_position) ' positions with ' num2str(number_channel) ' channels' newline 'Add positions (e.g. 1-5):'];
+    prompt = ['Detected ' num2str(number_position) ' positions with ' num2str(number_channel) ' channels\n' 'Add positions (e.g. 1-5):'];
     dlg_title = 'Select positions';
     answer = inputdlg(prompt,dlg_title);
     if ~isempty(answer)
-        str_cell = split(answer,'-');
-        pos_start = str2num(str_cell{1});
-        pos_end = str2num(str_cell{2});
+        %% PUT BACK
+        index = regexp(answer{1}, '-');
+        pos_start = str2num(answer{1}(1:index - 1));
+        pos_end = str2num(answer{1}(index + 1:end));
         if logical(pos_start) && logical(pos_end)
             pos_vector = pos_start:pos_end;
             for i=1:length(pos_vector)
@@ -863,11 +902,12 @@ end
 % --------------------------------------------------------------------
 
 function [imdata, num_channels] = tif_open(basename_path,actual_position)
-files = dir([basename_path '*s' num2str(actual_position) '.tif']);
+files = dir([basename_path '*s' num2str(actual_position) '.TIF']);
 num_channels=length(files);
 imdata={};
 for i=1:num_channels
-    imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+    %% PUT BACK
+    imdata{i} = loadStack([files(i).name]);
 end
 
 
@@ -973,15 +1013,17 @@ function button_rethreshold_Callback(parent,~ ,hObject)
     handles.threshold.status.String = 'Detecting ...';
     pause(1);
     h = waitbar(0);
-
+    mean_detection_time = 0;
+    tic
     for fov=1:handles.stack.number_images
        if  ~isempty(handles.stack.frame(fov).cell)
            for cellNo=1:handles.stack.frame(fov).number_cells
                handles = rethreshold_cell(handles, fov, cellNo);
+               mean_detection_time = toc/fov;
                % TO DO: threshold all cells in fov at same time
            end
        end
-       waitbar(fov/handles.stack.number_images,h);
+       waitbar(fov/handles.stack.number_images, h, ['Time remaining: ', num2str(mean_detection_time*(handles.stack.number_images - fov)), ' secs']);
     end
     close(h);
     handles.threshold.status.String = 'Status: Done';
@@ -1004,11 +1046,14 @@ function change_threshold_Callback(parent,~ ,hObject)
     
     % Rethreshold last cell
     if handles.stack.frame(handles.image_displayed).number_cells > 0  && handles.stack.live_dot_finding
+        handles.threshold.status.String = 'Detecting ...';
+        pause(1);    
         handles = rethreshold_cell(handles, handles.image_displayed, length(handles.stack.frame(handles.image_displayed).cell));
         if strcmp(get(handles.menu_stackViewer,'checked'),'on') %also update display
             handles = update_stackViewer_display(hObject,handles);
         end
     end
+    handles.threshold.status.String = 'Status: Done';
     guidata(hObject, handles)
 
 
@@ -1023,7 +1068,7 @@ function handles = rethreshold_cell(handles, frame_num, cell_num)
 
     BW_mask = handles.stack.frame(frame_num).cell(cell_num).mask ;
     if frame_num ~= handles.image_displayed %need to load the file
-        imdata = load_position(handles,frameNo);
+        imdata = load_position(handles,frame_num);
     else
         imdata = handles.current_image_stack;
     end
@@ -1060,3 +1105,5 @@ function figure1_CloseRequestFcn(hObject, eventdata, handles)
    case 'No'
      return
  end
+
+
