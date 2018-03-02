@@ -908,8 +908,13 @@ imdata={};
 for i=1:num_channels
     %% Compatibility issue here?
 %     imdata{i} = loadStack([files(i).name]);
-    imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+if ismac
+    fileseparators = strfind(basename_path,filesep);
+    imdata{i} = loadStack([basename_path(1:fileseparators(end)) files(i).name]);
 
+else
+imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+end
 end
 
 
