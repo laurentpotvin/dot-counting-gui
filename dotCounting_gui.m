@@ -906,8 +906,10 @@ files = dir([basename_path '*s' num2str(actual_position) '.TIF']);
 num_channels=length(files);
 imdata={};
 for i=1:num_channels
-    %% PUT BACK
-    imdata{i} = loadStack([files(i).name]);
+    %% Compatibility issue here?
+%     imdata{i} = loadStack([files(i).name]);
+    imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+
 end
 
 
