@@ -25,7 +25,7 @@ function [seg_im, nuc_im] = segment_on_bg(seg_channel_data, SEG_THRES, nuc_chann
         end
         nuc_im = logical(nuc_im);
         
-        bg = median(median(medfilt2(seg_channel_data(:, :, k), [5 5])));
+        bg = median(median(medfilt2(seg_channel_data(:, :, round(num_slices/2)), [5 5])));% the slice was k here
         avg_seg_channel = sum(seg_channel_data - bg, 3)/num_slices;
         
         temp_seg_im = 0*avg_seg_channel;
