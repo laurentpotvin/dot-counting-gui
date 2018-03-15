@@ -1,10 +1,19 @@
 function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
-    
+     MEDIAN_FILTER_SIZE = 5;
+     
+      % TO DO: make mask independent of binning
+     if size(imdata,1) > 512 && size(imdata,2) > 512
+         MEDIAN_FILTER_SIZE = 10;
+     end
+     
+    % Only work on segmented cells to speed up processing
+    [seg_im,y_ind,x_ind]= autocrop(seg_im);
     dots = struct; DOT_AREA = 2; centroids = cell(num_channels, 1);
+    
     for k = 1:num_channels
-        im_stack = imdata{k};
+        im_stack = imdata{k}(y_ind,x_ind,:);
         for p = 1:size(im_stack, 3)
-            bg_sub_imstack(:, :, p) = im_stack(:, :, p) - medfilt2(im_stack(:, :, p), [5 5]); %logMask(im_stack(:, :, p)).*uint16(logical(seg_im));
+            bg_sub_imstack(:, :, p) = im_stack(:, :, p) - medfilt2(im_stack(:, :, p), [MEDIAN_FILTER_SIZE MEDIAN_FILTER_SIZE]); %logMask(im_stack(:, :, p)).*uint16(logical(seg_im));
         end
         log_filt_imstack = bg_sub_imstack; %imgaussfilt3(bg_sub_imstack, 0.8); %0*im_stack;
         pot_dots_im = imregionalmax(log_filt_imstack);
@@ -27,10 +36,16 @@ function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
         dots(k).properties = good_dots_stats;
         dots(k).counts = length(good_dots_stats);  
         if dots(k).counts
+            
+            % Readjust dots centroid to reference frame before autocrop
+            for l=1:dots(k).counts
+               dots(k).properties(l).Centroid = dots(k).properties(l).Centroid + [x_ind(1)-1 y_ind(1)-1 0 ];  
+            end
+            
             if size(good_dots_stats(1).Centroid,2) == 3 %3D image
-                centroids{k} = reshape([good_dots_stats.Centroid], 3, length(good_dots_stats))';
+                centroids{k} = reshape([dots(k).properties.Centroid], 3, length(dots(k).properties))';
             else
-                centroids{k} = reshape([good_dots_stats.Centroid], 2, length(good_dots_stats))';
+                centroids{k} = reshape([dots(k).properties.Centroid], 2, length(dots(k).properties))';
                 centroids{k}(:,3)=1; % on plane 1 in 3D
             end
         end
@@ -64,4 +79,17 @@ function lapFrame = logMask(im)   %**check that have the right logMask function
          -4 -1  0 -1 -4];
 
     lapFrame = imfilter(im,k,'repl');
+end
+
+function [cropped_image,y_ind,x_ind]= autocrop(image)
+        sum_image=sum(image,3);
+            x_min = find(sum(sum_image,1)>0,1,'first');
+            x_max = find(sum(sum_image,1)>0,1,'last');
+            
+            y_min = find(sum(sum_image,2)>0,1,'first');
+            y_max = find(sum(sum_image,2)>0,1,'last');
+        
+        y_ind = y_min-10:y_max+10;
+        x_ind = x_min-10:x_max+10;
+        cropped_image  = image(y_ind,x_ind,:);
 end
