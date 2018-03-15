@@ -846,6 +846,9 @@ function menu_addImagesND_Callback(hObject, eventdata, handles)
 basename =FileName(1:(startIndex-1));
 if ~isa(FileName, 'double') %Dialog not closed
     
+    % TO FIX: if basename is the beginning of another basename in the same
+    % directory, it will get confused
+    
     files = dir([PathName filesep basename '*.tif']);
     number_position = 1;
     number_channel = 1;
