@@ -89,7 +89,7 @@ function [cropped_image,y_ind,x_ind]= autocrop(image)
             y_min = find(sum(sum_image,2)>0,1,'first');
             y_max = find(sum(sum_image,2)>0,1,'last');
         
-        y_ind = y_min-10:y_max+10;
-        x_ind = x_min-10:x_max+10;
+        y_ind = max(1,y_min-10):min(size(image,1),y_max+10);
+        x_ind = max(1,x_min-10):min(size(image,2),x_max+10);
         cropped_image  = image(y_ind,x_ind,:);
 end
