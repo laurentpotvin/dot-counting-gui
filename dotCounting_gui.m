@@ -241,9 +241,22 @@ if handles.image_displayed
         % Automatic rescaling to display RGB
         bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
-        
-        lower_bound(i) = find(cdf> 0.3,1, 'first');
-        higher_bound(i) = find(cdf> 0.999,1, 'first');
+        lower_bound(i) = 0;
+        higher_bound(i) = 0;
+        % Use preset values in stackviewer if defined
+        if isfield(handles,'stackViewer')
+            if isfield(handles.stackViewer,'min_value')
+                if handles.stackViewer.max_value(i) ~=0
+                    lower_bound(i) = handles.stackViewer.min_value(i);
+                    higher_bound(i) = handles.stackViewer.max_value(i);
+                end
+            end
+        end
+        %otherwise autoscaling
+        if higher_bound(i) ==0
+            lower_bound(i) = find(cdf> 0.3,1, 'first');
+            higher_bound(i) = find(cdf> 0.999,1, 'first');
+        end
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
@@ -412,9 +425,22 @@ if handles.image_displayed
         % Automatic rescaling to display RGB
         bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
-        
-        lower_bound(i) = find(cdf> 0.3,1, 'first');
-        higher_bound(i) = find(cdf> 0.999,1, 'first');
+        lower_bound(i) = 0;
+        higher_bound(i) = 0;
+        % Use preset values in stackviewer if defined
+        if isfield(handles,'stackViewer')
+            if isfield(handles.stackViewer,'min_value')
+                if handles.stackViewer.max_value(i) ~=0
+                    lower_bound(i) = handles.stackViewer.min_value(i);
+                    higher_bound(i) = handles.stackViewer.max_value(i);
+                end
+            end
+        end
+        %otherwise autoscaling
+        if higher_bound(i) ==0
+            lower_bound(i) = find(cdf> 0.3,1, 'first');
+            higher_bound(i) = find(cdf> 0.999,1, 'first');
+        end
         max_proj_rescaled(:,:,i)=mat2gray(max_proj{i},[lower_bound(i) higher_bound(i)]);
         
     end
