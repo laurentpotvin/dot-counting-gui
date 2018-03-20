@@ -36,15 +36,20 @@ function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
         dots(k).properties = good_dots_stats;
         dots(k).counts = length(good_dots_stats);  
         if dots(k).counts
-            
-            % Readjust dots centroid to reference frame before autocrop
-            for l=1:dots(k).counts
-               dots(k).properties(l).Centroid = dots(k).properties(l).Centroid + [x_ind(1)-1 y_ind(1)-1 0 ];  
-            end
-            
+                
             if size(good_dots_stats(1).Centroid,2) == 3 %3D image
+                % Readjust dots centroid to reference frame before autocrop
+                for l=1:dots(k).counts
+                    dots(k).properties(l).Centroid = dots(k).properties(l).Centroid + [x_ind(1)-1 y_ind(1)-1 0 ];
+                end
                 centroids{k} = reshape([dots(k).properties.Centroid], 3, length(dots(k).properties))';
             else
+                
+                % Readjust dots centroid to reference frame before autocrop
+                for l=1:dots(k).counts
+                    dots(k).properties(l).Centroid = dots(k).properties(l).Centroid + [x_ind(1)-1 y_ind(1)-1 ];
+                end
+                
                 centroids{k} = reshape([dots(k).properties.Centroid], 2, length(dots(k).properties))';
                 centroids{k}(:,3)=1; % on plane 1 in 3D
             end

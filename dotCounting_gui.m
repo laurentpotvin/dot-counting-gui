@@ -22,7 +22,7 @@ function varargout = dotCounting_gui(varargin)
 
 % Edit the above text to modify the response to help dotCounting_gui
 
-% Last Modified by GUIDE v2.5 24-Dec-2017 11:59:14
+% Last Modified by GUIDE v2.5 20-Mar-2018 09:19:05
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -203,8 +203,8 @@ function stackViewer_maxbox_Callback(~, ~, hObject)
 
 % --------------------------------------------------------------------
 function handles = update_display(hObject,handles)
-% TO DO: show cell outline
-% TO DO: select cell to zoom on, keep focus on
+
+
 if handles.image_displayed == 0 && handles.stack.number_images >= 1
     handles.image_displayed = 1;
     handles.main_window_axes = gca;
@@ -239,7 +239,7 @@ if handles.image_displayed
         max_proj{i} = max(imdata{i},[],3);
         
         % Automatic rescaling to display RGB
-        bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
+        bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
         lower_bound(i) = find(cdf> 0.3,1, 'first');
@@ -316,7 +316,7 @@ if handles.image_displayed
     current_image = imdata{current_channel}(:,:,current_z_slice);
    
     % Automatic rescaling
-    bincounts = histc(current_image(:), [0.5:1:65535.5]);
+    bincounts = histc(current_image(:), [-0.5:1:65535.5]);
     cdf=cumsum(bincounts)/size(current_image,1)/size(current_image,2);
     
     if ~isfield(handles.stackViewer, 'min_value')
@@ -324,10 +324,18 @@ if handles.image_displayed
         handles.stackViewer.max_value = zeros(1, handles.num_channels);
     end
     
+    if length(handles.stackViewer.min_value) < handles.num_channels 
+       %channels were added, reinit
+       handles.stackViewer.min_value = zeros(1, handles.num_channels);
+       handles.stackViewer.max_value = zeros(1, handles.num_channels);
+    end
     if handles.stackViewer.min_value(current_channel) == 0
         lower_bound = find(cdf> 0.01,1, 'first');
         handles.stackViewer.min_value(current_channel) = lower_bound;
         higher_bound = find(cdf> 0.99,1, 'first');
+        if isempty(higher_bound)
+            higher_bound = length(cdf);
+        end
         handles.stackViewer.max_value(current_channel) = higher_bound;
     end
     
@@ -402,7 +410,7 @@ if handles.image_displayed
         max_proj{i} = max(imdata{i},[],3);
         
         % Automatic rescaling to display RGB
-        bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
+        bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
         cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
         
         lower_bound(i) = find(cdf> 0.3,1, 'first');
@@ -653,7 +661,7 @@ function menu_removeCell_Callback(hObject, eventdata, handles)
             max_proj{i} = max(imdata{i},[],3);
 
             % Automatic rescaling to display RGB
-            bincounts = histc(max_proj{i}(:), [0.5:1:65535.5]);
+            bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
             cdf=cumsum(bincounts)/size(max_proj{i},1)/size(max_proj{i},2);
 
             lower_bound(i) = find(cdf> 0.3,1, 'first');
@@ -869,20 +877,48 @@ if ~isa(FileName, 'double') %Dialog not closed
     dlg_title = 'Select positions';
     answer = inputdlg(prompt,dlg_title);
     if ~isempty(answer)
-        %% PUT BACK
+        % PUT BACK
         index = regexp(answer{1}, '-');
         pos_start = str2num(answer{1}(1:index - 1));
         pos_end = str2num(answer{1}(index + 1:end));
         if logical(pos_start) && logical(pos_end)
             pos_vector = pos_start:pos_end;
-            for i=1:length(pos_vector)
-                handles.stack.image_path_cell{length( handles.stack.image_path_cell) + 1} = [PathName basename];
-                handles.stack.image_path_number(length( handles.stack.image_path_number) + 1) = pos_vector(i);
-                handles.stack.frame(handles.stack.number_images + i).number_cells = 0;
+            
+            switch hObject.Label
+                
+                case 'Add images (TIF)'
+                    
+                    for i=1:length(pos_vector)
+                        handles.stack.image_offset{length( handles.stack.image_path_cell) + 1} = repmat([0 0],number_channel,1);
+                        handles.stack.image_path_cell{length( handles.stack.image_path_cell) + 1} = [PathName basename];
+                        handles.stack.image_path_number(length( handles.stack.image_path_number) + 1) = pos_vector(i);
+                        handles.stack.frame(handles.stack.number_images + i).number_cells = 0;
+                    end
+                    
+                    handles.stack.number_images = handles.stack.number_images + pos_end-pos_start + 1;
+                    handles.stack.filetype = 'tif';
+                    
+                case 'Add channels (TIF)' 
+                    %Right now only works for one round of add all images,
+                    %add second hyb
+                    
+                    if isequal(handles.stack.image_path_number, pos_vector) %position numbers match first hyb
+                        for i=1:length(pos_vector)
+                            handles.stack.image_path_cell{i} = {handles.stack.image_path_cell{i} [PathName basename]};
+                        end
+                        
+                        guidata(hObject, handles)
+                        handles = align_channels(handles, 1 , number_channel);
+                        
+                        
+                    end
+                    % Force reloading of current stack
+                     handles.current_image_stack = [];
+                
+                    
             end
             
-            handles.stack.number_images = handles.stack.number_images + pos_end-pos_start + 1;
-            handles.stack.filetype = 'tif';
+           
             handles = update_display(hObject,handles);
             guidata(hObject, handles)
             
@@ -891,7 +927,7 @@ if ~isa(FileName, 'double') %Dialog not closed
   
 end
 
-
+% Add channel name dialog
 
 % --------------------------------------------------------------------
 function [imdata, num_channels] = load_position(handles, position)
@@ -900,26 +936,46 @@ switch handles.stack.filetype
     case 'czi'
         [imdata, num_channels] = czi_open(handles.stack.image_path_cell{position});
     case 'tif'        
-        [imdata, num_channels] = tif_open(handles.stack.image_path_cell{position},handles.stack.image_path_number(position));       
+        [imdata, num_channels] = tif_open(handles,position);       
 end
 % --------------------------------------------------------------------
 
-function [imdata, num_channels] = tif_open(basename_path,actual_position)
-files = dir([basename_path '*s' num2str(actual_position) '.TIF']);
-num_channels=length(files);
+function [imdata, num_channels] = tif_open(handles,position)
+
+basename_path = handles.stack.image_path_cell{position};
+actual_position = handles.stack.image_path_number(position);
+
+if ~iscell(basename_path)
+    basename_path = {basename_path};
+end
+num_channels = 0;
 imdata={};
-for i=1:num_channels
-    %% Compatibility issue here?
-%     imdata{i} = loadStack([files(i).name]);
-if ismac
-    fileseparators = strfind(basename_path,filesep);
-    imdata{i} = loadStack([basename_path(1:fileseparators(end)) files(i).name]);
-
-else
-imdata{i} = loadStack([files(i).folder filesep files(i).name]);
+% TO DO: preallocate imdata for speed
+for j=1:length(basename_path)
+    files = dir([basename_path{j} '*s' num2str(actual_position) '.TIF']);
+    num_channels=num_channels+length(files);
+    for i=1:length(files)
+        channel_index = num_channels - length(files) + i;
+        if ismac
+            fileseparators = strfind(basename_path{j},filesep);
+            image_stack = loadStack([basename_path{j}(1:fileseparators(end)) files(i).name]);
+            
+        else
+            image_stack = loadStack([files(i).folder filesep files(i).name]);
+        end
+        if isfield(handles.stack,'image_offset')
+            if size(handles.stack.image_offset{actual_position},1) >= channel_index              
+                offset_vector = handles.stack.image_offset{actual_position}(channel_index,:);
+                if ~isequal(offset_vector, [0 0])
+                    for slices=1:size( image_stack,3)
+                        image_stack(:,:,slices) = imtranslate( image_stack(:,:,slices), -offset_vector);
+                    end
+                end
+            end
+        end
+        imdata{channel_index} = image_stack;
+    end
 end
-end
-
 
     % --------------------------------------------------------------------
 function menu_removeImage_Callback(hObject, eventdata, handles)
@@ -945,8 +1001,6 @@ function [handles, dots] = dotCounting(handles, imdata, cell_mask)
     BW_mask = cell_mask;
     dots = detect_dots(imdata, BW_mask, handles.num_channels, handles.stack.dot_thresholds);
     
-    % TO DO
-    % -remove dots that colocalize
     set(gcf,'pointer','arrow');
 
 % --- Executes on slider movement.
@@ -1037,6 +1091,9 @@ function button_rethreshold_Callback(parent,~ ,hObject)
     end
     close(h);
     handles.threshold.status.String = 'Status: Done';
+    if strcmp(get(handles.menu_stackViewer,'checked'),'on') %also update display
+        handles = update_stackViewer_display(hObject,handles);
+    end
     guidata(hObject, handles)
 
 % --------------------------------------------------------------------
@@ -1116,4 +1173,94 @@ function figure1_CloseRequestFcn(hObject, eventdata, handles)
      return
  end
 
+
+
+
+% --------------------------------------------------------------------
+function menu_multihyb_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_multihyb (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function menu_align_auto_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_align_auto (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+handles = align_channels(handles,1);
+
+% force reloading of stack
+handles.current_image_stack = [];
+handles = update_stackViewer_display(hObject,handles);
+
+guidata(hObject, handles)
+
+% --------------------------------------------------------------------
+function menu_align_manual_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_align_manual (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+handles = align_channels(handles,0);
+
+% force reloading of stack
+handles.current_image_stack = [];
+handles = update_stackViewer_display(hObject,handles);
+
+
+guidata(hObject, handles)
+
+
+function handles = align_channels(handles,auto, number_new_channels)
+
+if nargin ==3
+    defaultans = {'1',num2str(size(handles.stack.image_offset{1},1)+1),[num2str(size(handles.stack.image_offset{1},1)+1) '-' num2str(size(handles.stack.image_offset{1},1)+number_new_channels) ]};
+else
+    defaultans = {'','',''};
+end
+
+prompt = {'Enter reference channel:','Enter target channel:', 'Enter channel(s) to align:'};
+dlg_title = 'Alignment';
+answer = inputdlg(prompt,dlg_title,1,defaultans);
+channel_reference = str2num(answer{1});
+channel_to_align = str2num(answer{2});
+
+index = regexp(answer{3}, '-');
+if isempty(index) %only one position
+    pos_start = str2num(answer{3});
+    pos_end = str2num(answer{3});
+else
+    pos_start = str2num(answer{3}(1:index - 1));
+    pos_end = str2num(answer{3}(index + 1:end));
+end
+
+
+            
+
+if logical(channel_reference) && logical(channel_to_align) && logical(pos_start) && logical(pos_end)
+    
+    if auto
+        [imdata] = load_position(handles, 1); %use position 1 for alignment
+        
+        [offset_x, offset_y ] = align_frames( imdata{channel_reference}, imdata{channel_to_align} );
+    else
+        offset_x = 0;
+        offset_y = 0;
+    end
+    prompt = {'Enter x offset:','Enter y offset:'};
+    dlg_title = 'Offset';
+    num_lines = 1;
+    defaultans = {num2str(offset_x),num2str(offset_y)};
+    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+    offset_x = str2num(answer{1});
+    offset_y = str2num(answer{2});
+    
+    for i=1:length(handles.stack.image_offset)
+        handles.stack.image_offset{i}(pos_start:pos_end,:) =  repmat([offset_x offset_y], (pos_end-pos_start+1),1);
+    end
+    
+    
+end
 
