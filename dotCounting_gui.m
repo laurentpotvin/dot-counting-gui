@@ -857,7 +857,7 @@ if ~isa(FileName, 'double') %Dialog not closed
     % TO FIX: if basename is the beginning of another basename in the same
     % directory, it will get confused
     
-    files = dir([PathName filesep basename '*.tif']);
+    files = dir([PathName filesep basename '*.TIF']);
     number_position = 1;
     number_channel = 1;
     for i=1:length(files)
@@ -952,6 +952,7 @@ num_channels = 0;
 imdata={};
 % TO DO: preallocate imdata for speed
 for j=1:length(basename_path)
+    % TO DO : make dir function independent of TIF case
     files = dir([basename_path{j} '*s' num2str(actual_position) '.TIF']);
     num_channels=num_channels+length(files);
     for i=1:length(files)
