@@ -990,9 +990,9 @@ for j=1:length(basename_path)
         else
             image_stack = loadStack([files(i).folder filesep files(i).name]);
         end
-        if isfield(handles.stack,'image_offset')
-            if size(handles.stack.image_offset{actual_position},1) >= channel_index              
-                offset_vector = handles.stack.image_offset{actual_position}(channel_index,:);
+        if isfield(handles.stack,'image_offset') %image offset position is relative, not absolute
+            if size(handles.stack.image_offset{position},1) >= channel_index              
+                offset_vector = handles.stack.image_offset{position}(channel_index,:);
                 if ~isequal(offset_vector, [0 0])
                     for slices=1:size( image_stack,3)
                         image_stack(:,:,slices) = imtranslate( image_stack(:,:,slices), -offset_vector);
@@ -1243,51 +1243,109 @@ guidata(hObject, handles)
 function handles = align_channels(handles,auto, number_new_channels)
 
 if nargin ==3
-    defaultans = {'1',num2str(size(handles.stack.image_offset{1},1)+1),[num2str(size(handles.stack.image_offset{1},1)+1) '-' num2str(size(handles.stack.image_offset{1},1)+number_new_channels) ]};
+    defaultans = {'1',num2str(size(handles.stack.image_offset{1},1)+1),[num2str(size(handles.stack.image_offset{1},1)+1) '-' num2str(size(handles.stack.image_offset{1},1)+number_new_channels) ], num2str(handles.image_displayed), 'y'};
 else
-    defaultans = {'','',''};
+    defaultans = {'','','', num2str(handles.image_displayed), 'n'};
 end
 
-prompt = {'Enter reference channel:','Enter target channel:', 'Enter channel(s) to align:'};
+prompt = {'Enter reference channel:','Enter target channel:', 'Enter channel(s) to align:','Position(s) to use for alignment','Same offset for all pos (y/n)'};
 dlg_title = 'Alignment';
 answer = inputdlg(prompt,dlg_title,1,defaultans);
 channel_reference = str2num(answer{1});
 channel_to_align = str2num(answer{2});
 
 index = regexp(answer{3}, '-');
-if isempty(index) %only one position
-    pos_start = str2num(answer{3});
-    pos_end = str2num(answer{3});
+if isempty(index) %only one channel
+    channel_start = str2num(answer{3});
+    channel_end = str2num(answer{3});
 else
-    pos_start = str2num(answer{3}(1:index - 1));
-    pos_end = str2num(answer{3}(index + 1:end));
+    channel_start = str2num(answer{3}(1:index - 1));
+    channel_end = str2num(answer{3}(index + 1:end));
 end
 
+index = regexp(answer{3}, '-');
+if isempty(index) %only one position
+    pos_start = str2num(answer{4});
+    pos_end = str2num(answer{4});
+else
+    pos_start = str2num(answer{4}(1:index - 1));
+    pos_end = str2num(answer{4}(index + 1:end));
+end
 
+one_offset = 1;
+
+switch answer{5}
+    case 'y'
+        one_offset = 1;
+    case 'n'
+        one_offset = 0;
+end
             
 
-if logical(channel_reference) && logical(channel_to_align) && logical(pos_start) && logical(pos_end)
+if logical(channel_reference) && logical(channel_to_align) && logical(channel_start) && logical(channel_end)
     
-    if auto
-        [imdata] = load_position(handles, 1); %use position 1 for alignment
+      h = waitbar(0);
+    
+    offset_matrix = zeros(pos_end-pos_start+1,2);
+    for position = pos_start:pos_end
         
-        [offset_x, offset_y ] = align_frames( imdata{channel_reference}, imdata{channel_to_align} );
+         % Load current offset if set
+         if size(handles.stack.image_offset{position},1) >= channel_end
+             old_offset_x = handles.stack.image_offset{position}(channel_start,1);
+             old_offset_y = handles.stack.image_offset{position}(channel_start,2);
+         else
+             old_offset_x = 0;
+             old_offset_y = 0;
+         end
+         
+         if auto
+             %reset offset before alignment
+             handles.stack.image_offset{position}(channel_start:channel_end,:) = [0 0];          
+             [imdata] = load_position(handles, position);
+             
+             [offset_x, offset_y ] = align_frames( imdata{channel_reference}, imdata{channel_to_align} );
+         else
+             offset_x = old_offset_x;
+             offset_y = old_offset_y;
+         end
+         
+        
+        offset_matrix(position,:) = [offset_x offset_y];
+        
+        waitbar((position-pos_start+1)/(pos_end-pos_start+1), h);
+
+    end
+    close(h);
+    if one_offset
+        offset_x = median(offset_matrix(:,1));
+        offset_y = median(offset_matrix(:,2));
+        
+        prompt = {'Enter x offset:','Enter y offset:'};
+        dlg_title = 'Offset';
+        num_lines = 1;
+        defaultans = {num2str(offset_x),num2str(offset_y)};
+        answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+        offset_x = str2num(answer{1});
+        offset_y = str2num(answer{2});
+        
+        for i=1:length(handles.stack.image_offset)
+            handles.stack.image_offset{i}(channel_start:channel_end,:) =  repmat([offset_x offset_y], (channel_end-channel_start+1),1);
+        end
     else
-        offset_x = 0;
-        offset_y = 0;
+        
+        if  pos_start == pos_end %only validate if we have only one offset or one position
+            prompt = {'Enter x offset:','Enter y offset:'};
+            dlg_title = 'Offset';
+            num_lines = 1;
+            defaultans = {num2str(offset_x),num2str(offset_y)};
+            answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
+            offset_x = str2num(answer{1});
+            offset_y = str2num(answer{2});
+        end
+        
+        for position = pos_start:pos_end
+            handles.stack.image_offset{position}(channel_start:channel_end,:) =  repmat([offset_x offset_y], (channel_end-channel_start+1),1);
+        end
     end
-    prompt = {'Enter x offset:','Enter y offset:'};
-    dlg_title = 'Offset';
-    num_lines = 1;
-    defaultans = {num2str(offset_x),num2str(offset_y)};
-    answer = inputdlg(prompt,dlg_title,num_lines,defaultans);
-    offset_x = str2num(answer{1});
-    offset_y = str2num(answer{2});
-    
-    for i=1:length(handles.stack.image_offset)
-        handles.stack.image_offset{i}(pos_start:pos_end,:) =  repmat([offset_x offset_y], (pos_end-pos_start+1),1);
-    end
-    
-    
 end
 
