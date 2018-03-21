@@ -1263,7 +1263,7 @@ else
     channel_end = str2num(answer{3}(index + 1:end));
 end
 
-index = regexp(answer{3}, '-');
+index = regexp(answer{4}, '-');
 if isempty(index) %only one position
     pos_start = str2num(answer{4});
     pos_end = str2num(answer{4});
