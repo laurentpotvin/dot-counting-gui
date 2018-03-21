@@ -420,7 +420,7 @@ if handles.image_displayed
     % Show max proj of current stack (first 3 channels)
     max_proj={};max_proj_rescaled=zeros(size(imdata{1},1),size(imdata{1},2),min(handles.num_channels,3));
     for i=1:min(handles.num_channels,3)
-        max_proj{i} = max(imdata{i},[],3);
+        max_proj{i} = max(imdata{i}(:,:,round(size(imdata{i},3)/2)),[],3);
         
         % Automatic rescaling to display RGB
         bincounts = histc(max_proj{i}(:), [-0.5:1:65535.5]);
