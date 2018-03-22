@@ -246,9 +246,11 @@ if handles.image_displayed
         % Use preset values in stackviewer if defined
         if isfield(handles,'stackViewer')
             if isfield(handles.stackViewer,'min_value')
-                if handles.stackViewer.max_value(i) ~=0
-                    lower_bound(i) = handles.stackViewer.min_value(i);
-                    higher_bound(i) = handles.stackViewer.max_value(i);
+                if length(handles.stackViewer.max_value) >= i
+                    if handles.stackViewer.max_value(i) ~=0
+                        lower_bound(i) = handles.stackViewer.min_value(i);
+                        higher_bound(i) = handles.stackViewer.max_value(i);
+                    end
                 end
             end
         end
@@ -430,9 +432,11 @@ if handles.image_displayed
         % Use preset values in stackviewer if defined
         if isfield(handles,'stackViewer')
             if isfield(handles.stackViewer,'min_value')
-                if handles.stackViewer.max_value(i) ~=0
-                    lower_bound(i) = handles.stackViewer.min_value(i);
-                    higher_bound(i) = handles.stackViewer.max_value(i);
+                if length(handles.stackViewer.max_value) >= i
+                    if handles.stackViewer.max_value(i) ~=0
+                        lower_bound(i) = handles.stackViewer.min_value(i);
+                        higher_bound(i) = handles.stackViewer.max_value(i);
+                    end
                 end
             end
         end
