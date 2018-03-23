@@ -1,7 +1,9 @@
-function [dots, dot_sizes, frame_info] = extract_dot_info(data)
+function [dots, dot_sizes, frame_info, cell_area ] = extract_dot_info(data)
 dots = []; %zeros(size(data.stack.frame, 2), length([data.stack.frame(1).cell(:).dots.counts]));
 frame_info = [];
 number_channels = -1;
+cell_area = [];
+
 % Find the number of channels
 for k = 1:size(data.stack.frame, 2)
     frame_data = data.stack.frame(k);
@@ -24,6 +26,7 @@ if number_channels  >0
             if isfield(frame_data.cell(p), 'dots')
                 frame_info(end + 1) = k;
                 dots(end + 1, :) = [frame_data.cell(p).dots.counts];
+                cell_area = cat(1,cell_area,sum(frame_data.cell(p).mask(:)));
                 for m = 1:length(frame_data.cell(p).dots)
                     temp = dot_sizes{m};
                     temp = cat(1, temp, frame_data.cell(p).dots(m).properties.Area);
