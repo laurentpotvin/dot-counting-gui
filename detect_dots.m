@@ -8,7 +8,7 @@ function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
      
     % Only work on segmented cells to speed up processing
     [seg_im,y_ind,x_ind]= autocrop(seg_im);
-    dots = struct; DOT_AREA = 2; centroids = cell(num_channels, 1);
+    dots = struct; DOT_AREA = 4; centroids = cell(num_channels, 1);
     
     for k = 1:num_channels
         im_stack = imdata{k}(y_ind,x_ind,:);
@@ -21,6 +21,15 @@ function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
         thresh_stack = bsxfun(@times, bg_sub_imstack, uint16(seg_im)); 
         thresh_stack(thresh_stack < thresholds(k)) = 0;
         
+        % Hot pixel removal
+        if size(im_stack, 3)>8
+            MAX_Z_ABOVE_THRESH = round(size(im_stack, 3)/3);
+            potential_hot_pixel = sum(logical(thresh_stack),3) > MAX_Z_ABOVE_THRESH;
+            
+            if sum(potential_hot_pixel(:))
+                thresh_stack(repmat(potential_hot_pixel,1,1,size(im_stack, 3)))=0;
+            end
+        end
         labeled_stack = bwlabeln(thresh_stack, 26); 
         stats = regionprops(labeled_stack);
         all_dots = 1:length(stats);
