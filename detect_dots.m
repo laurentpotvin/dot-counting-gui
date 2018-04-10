@@ -69,15 +69,15 @@ function dots = detect_dots(imdata, seg_im, num_channels, thresholds)
     % that colocalize with dots in the first channel
     OVERLAP_SIZE = 2; channels_to_compare = 2:num_channels; channel_standard = 2;  
     dots_std_to_remove = []; 
-    for k = channels_to_compare(channels_to_compare ~= channel_standard)
-        if ~isempty(centroids{channel_standard}) && ~isempty(centroids{k})
-            [pairwise_distances, indices] = pdist2(centroids{2}, centroids{k}, 'euclidean', 'Smallest', 1);
-            dots_to_keep = find(~ismember(1:length(dots(k).properties), find(pairwise_distances < OVERLAP_SIZE)));
-            dots(k).properties = dots(k).properties(dots_to_keep); dots(k).counts = length(dots_to_keep);
-            dots_std_to_remove = [unique(indices(pairwise_distances < OVERLAP_SIZE))'; dots_std_to_remove(:)];
-        end
-    end
-    
+%     for k = channels_to_compare(channels_to_compare ~= channel_standard)
+%         if ~isempty(centroids{channel_standard}) && ~isempty(centroids{k})
+%             [pairwise_distances, indices] = pdist2(centroids{2}, centroids{k}, 'euclidean', 'Smallest', 1);
+%             dots_to_keep = find(~ismember(1:length(dots(k).properties), find(pairwise_distances < OVERLAP_SIZE)));
+%             dots(k).properties = dots(k).properties(dots_to_keep); dots(k).counts = length(dots_to_keep);
+%             dots_std_to_remove = [unique(indices(pairwise_distances < OVERLAP_SIZE))'; dots_std_to_remove(:)];
+%         end
+%     end
+%     
     dots_std_to_keep = find(~ismember(1:length(dots(channel_standard).properties), dots_std_to_remove));
     dots(channel_standard).properties = dots(channel_standard).properties(dots_std_to_keep); dots(channel_standard).counts = length(dots_std_to_keep);
 end
