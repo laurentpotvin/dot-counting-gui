@@ -451,11 +451,17 @@ if handles.image_displayed
     %          figure(handles.ax_main_image);
     imshow(max_proj_rescaled)
     
+    % Use last figure position
+    if isfield(handles,'addCell_fig_pos')
+       set(h,'position', handles.addCell_fig_pos);
+    end
+    
     %BW_mask = roipoly; Select polygon
     imHandle = imfreehand;
     BW_mask = createMask(imHandle);
     handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells + 1;
-
+    
+    handles.addCell_fig_pos = get(h,'position');
     
     if isfield(handles.stack, 'dot_thresholds') && handles.stack.live_dot_finding
         [handles, dots] = dotCounting(handles, imdata, BW_mask);
@@ -610,7 +616,7 @@ function menu_detectDots_Callback(hObject, eventdata, handles)
     else
         hObject.Checked = 'on';
         window_position = getpixelposition(handles.figure1);
-        handles.threshold.window = figure('Name', 'Threshold settings', 'Menubar', 'none', 'Position', [window_position(1), window_position(2), 261, 271], 'CloseReq', {@menu_threshold_CloseRequest_Fcn, hObject}); % 'Keypress', {@onkeypress, hObject}'ResizeFcn', {@movie_slider_ResizeFcn, hObject});
+        handles.threshold.window = figure('Name', 'Threshold settings', 'Menubar', 'none', 'Position', [window_position(1), window_position(2), 261, 271+40*(handles.num_channels-3)], 'CloseReq', {@menu_threshold_CloseRequest_Fcn, hObject}); % 'Keypress', {@onkeypress, hObject}'ResizeFcn', {@movie_slider_ResizeFcn, hObject});
         handles.threshold.status = uicontrol(gcf, 'Style', 'text', 'Position', [141, 150, 104, 35], 'String', 'Status: Done', 'FontSize', 16);
         
         if ~isfield(handles.stack, 'dot_thresholds')
@@ -620,14 +626,14 @@ function menu_detectDots_Callback(hObject, eventdata, handles)
             end
         end
         
-        handles.threshold.chk_auto_threshold = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 218, 95, 19], 'Value', 1, 'String', 'Auto Threshold', 'Callback', {@chk_auto_threshold_Callback, hObject});
+        handles.threshold.chk_auto_threshold = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 218+40*(handles.num_channels-3), 95, 19], 'Value', 1, 'String', 'Auto Threshold', 'Callback', {@chk_auto_threshold_Callback, hObject});
        
         if isfield(handles.stack,'autothreshold')
             set(handles.threshold.chk_auto_threshold, 'value',handles.stack.autothreshold);
         else
             handles.stack.autothreshold = 1;
         end
-        handles.threshold.chk_live_dot_finding = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 250, 95, 19], 'Value', 1, 'String', 'Live dot finding', 'Callback', {@chk_live_dot_finding_Callback, hObject});
+        handles.threshold.chk_live_dot_finding = uicontrol(gcf, 'Style', 'checkbox', 'Position', [31, 250+40*(handles.num_channels-3), 95, 19], 'Value', 1, 'String', 'Live dot finding', 'Callback', {@chk_live_dot_finding_Callback, hObject});
         
         if isfield(handles.stack,'live_dot_finding')
             set(handles.threshold.chk_live_dot_finding, 'value',handles.stack.live_dot_finding);
@@ -636,10 +642,10 @@ function menu_detectDots_Callback(hObject, eventdata, handles)
         end
       
     
-        handles.threshold.button_rethreshold = uicontrol(gcf, 'Style', 'pushbutton', 'Position', [141, 210, 84, 35], 'String', 'Detect Dots', 'Callback', {@button_rethreshold_Callback, hObject});
+        handles.threshold.button_rethreshold = uicontrol(gcf, 'Style', 'pushbutton', 'Position', [141, 210+40*(handles.num_channels-3), 84, 35], 'String', 'Detect Dots', 'Callback', {@button_rethreshold_Callback, hObject});
         
         for i=1:handles.num_channels
-            handles.threshold.(['edit_channel' num2str(i)]) = uicontrol(gcf, 'Style', 'edit', 'Position', [26, 170-40*(i-1), 46, 34], 'String', num2str(handles.stack.dot_thresholds(i)), 'Callback', {@change_threshold_Callback, hObject}, 'Tag', ['edit_channel' num2str(i)], 'Enable', 'on');
+            handles.threshold.(['edit_channel' num2str(i)]) = uicontrol(gcf, 'Style', 'edit', 'Position', [26, 170-40*(i-1)+40*(handles.num_channels-3), 46, 34], 'String', num2str(handles.stack.dot_thresholds(i)), 'Callback', {@change_threshold_Callback, hObject}, 'Tag', ['edit_channel' num2str(i)], 'Enable', 'on');
             %handles.threshold.(['channel' num2str(i)]) = '';
             if handles.stack.autothreshold
                 set(handles.threshold.(['edit_channel' num2str(i)]),'enable','off');
