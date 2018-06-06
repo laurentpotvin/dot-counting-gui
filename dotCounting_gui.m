@@ -451,7 +451,9 @@ if handles.image_displayed
     %          figure(handles.ax_main_image);
     imshow(max_proj_rescaled)
     
-    BW_mask = roipoly;
+    %BW_mask = roipoly; Select polygon
+    imHandle = imfreehand;
+    BW_mask = createMask(imHandle);
     handles.stack.frame(handles.image_displayed).number_cells = handles.stack.frame(handles.image_displayed).number_cells + 1;
 
     
@@ -1304,7 +1306,7 @@ if logical(channel_reference) && logical(channel_to_align) && logical(channel_st
          
          if auto
              %reset offset before alignment
-             handles.stack.image_offset{position}(channel_start:channel_end,:) = [0 0];          
+             handles.stack.image_offset{position}(channel_start:channel_end,:) = repmat([0 0],channel_end-channel_start+1,1);          
              [imdata] = load_position(handles, position);
              
              [offset_x, offset_y ] = align_frames( imdata{channel_reference}, imdata{channel_to_align} );

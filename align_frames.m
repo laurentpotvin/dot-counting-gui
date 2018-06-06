@@ -8,7 +8,7 @@ function [ offset_x, offset_y ] = align_frames( frame1, frame2 )
 raw_data = frame1(:,:,round(size(frame1,3)/2));
 raw_data(:,:,2)= frame2(:,:,round(size(frame2,3)/2));
 
-ROI = imSelectROI(frame1);
+ROI = imSelectROI(raw_data(:,:,1));
  % Compute correlation function
  [Gtime] = sticsTFM(raw_data(ROI.Xrange,ROI.Yrange,:),size(raw_data(ROI.Xrange,ROI.Yrange,:),3));
 %   [Gtime] = sticsTFM(raw_data(:,:,:),size(raw_data(:,:,:),3));
